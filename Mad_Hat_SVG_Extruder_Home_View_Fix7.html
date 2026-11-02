@@ -33,6 +33,7 @@ button.secondary{background:#1b2a40;color:var(--text);border:1px solid #344a68}b
 #viewport{position:relative;flex:1;min-height:460px;height:calc(100vh - 190px);background:radial-gradient(ellipse at center,#303030 0%,#202020 65%,#151515 100%);overflow:hidden}
 #viewport canvas{display:block;width:100%;height:100%}.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;pointer-events:none;color:var(--muted)}.empty .empty-inner{max-width:340px;padding:24px}.empty strong{font-size:17px;color:#e8eef7;display:block;margin-bottom:8px}
 .statusbar{padding:10px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px;background:#101a29}.pill{border:1px solid var(--line);padding:3px 7px;border-radius:20px}
+.visualizer-tools{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:6px;z-index:3}.visualizer-tools button{font-size:16px;min-width:40px;padding:8px 10px;background:#101a29dd;color:var(--text);border:1px solid #344a68;border-radius:7px}.visualizer-tools button:hover{border-color:var(--accent);background:#25354b}
 @media(max-width:900px){main{grid-template-columns:1fr}aside{max-height:none;border-right:0;border-bottom:1px solid var(--line)}#viewport{min-height:440px}header{position:static}}
 
 .hat {
@@ -42,6 +43,8 @@ button.secondary{background:#1b2a40;color:var(--text);border:1px solid #344a68}b
   display: grid;
   place-items: center;
 }
+
+.viewer-hint{position:absolute;right:12px;top:12px;background:#101722cc;border:1px solid #35445a;border-radius:7px;padding:8px 10px;font-size:11px;color:var(--muted);pointer-events:none}
 
 </style>
 <script>
@@ -105,9 +108,18 @@ window.addEventListener('unhandledrejection',function(){const s=document.getElem
   <div class="toolbar">
     <button class="secondary" id="resetView" disabled>Reset view</button><button class="secondary" id="deleteSelected" disabled>Delete selected</button><button class="secondary" id="clearBuildplate" disabled>Clear buildplate</button>
     <button class="secondary" id="wireBtn" disabled>Wireframe</button>
-    <span>Click a model to select its SVG · Ctrl+click to multi-select · drag to orbit · scroll to zoom · right-drag to pan</span><div class="spacer"></div><span id="shapeCount">No model loaded</span>
+    <span>Click a model to select its SVG · Ctrl+click to multi-select</span><div class="spacer"></div><span id="shapeCount">No model loaded</span>
   </div>
-  <div id="viewport"><div class="empty" id="empty"><div class="empty-inner"><strong>Your 3D model will appear here</strong>Upload SVGs, then click a model to select its SVG by bounding box and export it separately.</div></div></div>
+  <div id="viewport">
+    <div class="visualizer-tools">
+      <button type="button" id="viewHome" title="Reset view" aria-label="Reset view">⌂</button>
+      <button type="button" id="viewTop" title="Top view" aria-label="Top view">T</button>
+      <button type="button" id="viewFront" title="Front view" aria-label="Front view">F</button>
+      <button type="button" id="toggleBuildplate" title="Toggle buildplate" aria-label="Toggle buildplate">▦</button>
+    </div>
+	<div class="viewer-hint">Left-drag: orbit · Right-drag: pan · Wheel: zoom</div>
+    <div class="empty" id="empty"><div class="empty-inner"><strong>Your 3D model will appear here</strong>Upload SVGs, then click a model to select its SVG by bounding box and export it separately.</div></div>
+  </div>
   <div class="statusbar"><span id="status">Ready · Select SVG files to begin</span><span id="dimensions">—</span></div>
 </div>
 </main>
@@ -122,8 +134,8 @@ import {STLExporter} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/j
 
 const $=id=>document.getElementById(id),viewport=$('viewport');
 let scene,camera,renderer,controls,modelRoot,svgFiles=[],parsedSvgFiles=[],baseShapes=[],meshEntries=[],wire=false,modelName='model';
-let selectedSvgIds=new Set(),selectionHelpers=[],raycaster,mouse;
-try{initScene();animate()}catch(e){console.error(e);setStatus('3D preview failed to start. Check your internet connection and reload.')}
+let selectedSvgIds=new Set(),selectionHelpers=[],raycaster,mouse,buildGrid,buildPlate,buildAxes,showBuildplate=true;
+try{initScene();resetCamera();animate()}catch(e){console.error(e);setStatus('3D preview failed to start. Check your internet connection and reload.')}
 function initScene(){
  scene=new THREE.Scene();scene.background=null;
  camera=new THREE.PerspectiveCamera(45,1,.1,10000);camera.position.set(0,-200,100);
@@ -133,7 +145,11 @@ function initScene(){
  scene.add(new THREE.HemisphereLight(0xffffff,0x65718b,2.1));
  const key=new THREE.DirectionalLight(0xffffff,2.6);key.position.set(100,-120,220);scene.add(key);
  const fill=new THREE.DirectionalLight(0x9db8ff,1.1);fill.position.set(-120,100,70);scene.add(fill);
- const grid=new THREE.GridHelper(240,24,0x536078,0x30394a);grid.rotation.x=Math.PI/2;grid.position.z=-.15;scene.add(grid);
+ buildGrid=new THREE.GridHelper(240,24,0x536078,0x30394a);buildGrid.rotation.x=Math.PI/2;buildGrid.position.z=-.15;scene.add(buildGrid);
+ buildPlate=new THREE.Mesh(new THREE.PlaneGeometry(240,240),new THREE.MeshStandardMaterial({color:0x101b2a,roughness:.95,metalness:.05,side:THREE.DoubleSide}));buildPlate.position.z=-.22;scene.add(buildPlate);
+ buildAxes=new THREE.AxesHelper(28);buildAxes.position.set(-100,-100,.1);scene.add(buildAxes);
+ // Keep the buildplate beneath the model and the grid visible above it.
+ buildGrid.renderOrder=2;buildAxes.renderOrder=3;
  modelRoot=new THREE.Group();scene.add(modelRoot);resize();window.addEventListener('resize',resize);
  renderer.domElement.addEventListener('pointerdown',handlePreviewSelection);
 }
@@ -595,7 +611,14 @@ function deleteSelectedSvgs(){
 }
 function resetCamera(){
     const box = new THREE.Box3().setFromObject(modelRoot);
-    if (box.isEmpty()) return;
+    if (box.isEmpty()) {
+        controls.target.set(0,0,10);
+        camera.up.set(0,0,1);
+        camera.position.set(150,-190,140);
+        camera.near=.1;camera.far=10000;camera.updateProjectionMatrix();
+        controls.update();
+        return;
+    }
 
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -690,6 +713,27 @@ $('showEdges').addEventListener('change',()=>{wire=$('showEdges').checked;meshEn
 $('clearBuildplate').addEventListener('click',clearBuildplate);
 $('deleteSelected').addEventListener('click',deleteSelectedSvgs);
 $('resetView').addEventListener('click',resetCamera);
+$('viewHome').addEventListener('click',resetCamera);
+$('viewTop').addEventListener('click',()=>{
+ const target=controls.target.clone(),box=new THREE.Box3().setFromObject(modelRoot);
+ const size=box.isEmpty()?100:box.getSize(new THREE.Vector3()).length();
+ const distance=Math.max(size*1.8,100);
+ camera.up.set(0,1,0);camera.position.set(target.x,target.y,target.z+distance);
+ camera.lookAt(target);controls.target.copy(target);controls.update();
+});
+$('viewFront').addEventListener('click',()=>{
+ const target=controls.target.clone(),box=new THREE.Box3().setFromObject(modelRoot);
+ const size=box.isEmpty()?100:box.getSize(new THREE.Vector3()).length();
+ const distance=Math.max(size*1.8,100);
+ camera.up.set(0,0,1);camera.position.set(target.x,target.y-distance,target.z);
+ camera.lookAt(target);controls.target.copy(target);controls.update();
+});
+$('toggleBuildplate').addEventListener('click',()=>{
+ showBuildplate=!showBuildplate;
+ buildGrid.visible=showBuildplate;buildPlate.visible=showBuildplate;buildAxes.visible=showBuildplate;
+ $('toggleBuildplate').setAttribute('aria-pressed',String(showBuildplate));
+ setStatus(showBuildplate?'Buildplate shown.':'Buildplate hidden.');
+});
 $('wireBtn').addEventListener('click',()=>{wire=!wire;$('showEdges').checked=wire;meshEntries.forEach(e=>e.mesh.material.wireframe=wire)});
 $('exportStl').addEventListener('click',exportSTL);
 $('exportSelected').addEventListener('click',()=>exportSeparately([...selectedSvgIds]));
