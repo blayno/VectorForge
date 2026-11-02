@@ -106,7 +106,7 @@ window.addEventListener('unhandledrejection',function(){const s=document.getElem
 </aside>
 <div class="workspace">
   <div class="toolbar">
-    <button class="secondary" id="resetView" disabled>Reset view</button><button class="secondary" id="deleteSelected" disabled>Delete selected</button><button class="secondary" id="clearBuildplate" disabled>Clear buildplate</button>
+    <button class="secondary" id="undoBtn" disabled title="Undo (Ctrl+Z)">↶ Undo</button><button class="secondary" id="redoBtn" disabled title="Redo (Ctrl+Y)">↷ Redo</button><button class="secondary" id="resetView" disabled>Reset view</button><button class="secondary" id="deleteSelected" disabled>Delete selected</button><button class="secondary" id="clearBuildplate" disabled>Clear buildplate</button>
     <button class="secondary" id="wireBtn" disabled>Wireframe</button>
     <span>Click a model to select its SVG · Ctrl+click to multi-select</span><div class="spacer"></div><span id="shapeCount">No model loaded</span>
   </div>
@@ -135,6 +135,7 @@ import {STLExporter} from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/j
 const $=id=>document.getElementById(id),viewport=$('viewport');
 let scene,camera,renderer,controls,modelRoot,svgFiles=[],parsedSvgFiles=[],baseShapes=[],meshEntries=[],wire=false,modelName='model';
 let selectedSvgIds=new Set(),selectionHelpers=[],raycaster,mouse,buildGrid,buildPlate,buildAxes,showBuildplate=true;
+const undoStack=[],redoStack=[];let restoringHistory=false;
 try{initScene();resetCamera();animate()}catch(e){console.error(e);setStatus('3D preview failed to start. Check your internet connection and reload.')}
 function initScene(){
  scene=new THREE.Scene();scene.background=null;
@@ -156,6 +157,66 @@ function initScene(){
 function resize(){if(!renderer)return;const w=viewport.clientWidth,h=viewport.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/Math.max(1,h);camera.updateProjectionMatrix()}
 function animate(){requestAnimationFrame(animate);if(controls)controls.update();if(renderer&&scene&&camera)renderer.render(scene,camera)}
 function setStatus(s){$('status').textContent=s}
+function captureEditorState(){
+ return {
+  svgFiles:[...svgFiles], parsedSvgFiles:[...parsedSvgFiles], baseShapes:[...baseShapes],
+  shapeValues:baseShapes.map(s=>({ref:s,color:s.color,visible:s.visible,thickness:s.thickness})),
+  selectedSvgIds:[...selectedSvgIds],modelName,wire,showBuildplate,
+  height:$('height').value,quality:$('quality').value,center:$('center').checked
+ };
+}
+function updateHistoryButtons(){
+ $('undoBtn').disabled=undoStack.length===0;
+ $('redoBtn').disabled=redoStack.length===0;
+}
+function saveHistory(){
+ if(restoringHistory)return;
+ undoStack.push(captureEditorState());
+ if(undoStack.length>100)undoStack.shift();
+ redoStack.length=0;updateHistoryButtons();
+}
+function restoreEditorState(state){
+ restoringHistory=true;
+ svgFiles=[...state.svgFiles];parsedSvgFiles=[...state.parsedSvgFiles];baseShapes=[...state.baseShapes];
+ state.shapeValues.forEach(v=>{v.ref.color=v.color;v.ref.visible=v.visible;v.ref.thickness=v.thickness});
+ selectedSvgIds=new Set(state.selectedSvgIds);modelName=state.modelName;wire=state.wire;showBuildplate=state.showBuildplate;
+ $('height').value=state.height;$('heightVal').textContent=Number(state.height).toFixed(1)+' mm';
+ $('quality').value=state.quality;$('center').checked=state.center;$('showEdges').checked=wire;
+ buildGrid.visible=showBuildplate;buildPlate.visible=showBuildplate;buildAxes.visible=showBuildplate;
+ $('toggleBuildplate').setAttribute('aria-pressed',String(showBuildplate));
+ $('fileLabel').textContent=svgFiles.length?`${svgFiles.length} SVG file(s): `+svgFiles.map(f=>f.name).join(', '):'Select one or multiple SVGs';
+ $('empty').style.display=svgFiles.length?'none':'grid';
+ buildSvgSelectionList();buildLayerList();
+ if(svgFiles.length){
+  rebuildModel();
+  ['exportStl','exportObj','exportSelected','exportAllSeparate','resetView','deleteSelected','clearBuildplate','wireBtn','allThickness','allColors'].forEach(id=>$(id).disabled=false);
+ }else{
+  clearModel();modelRoot.position.set(0,0,0);
+  $('shapeCount').textContent='No model loaded';$('dimensions').textContent='—';
+  ['exportStl','exportObj','exportSelected','exportAllSeparate','resetView','deleteSelected','clearBuildplate','wireBtn','allThickness','allColors'].forEach(id=>$(id).disabled=true);
+ }
+ restoringHistory=false;updateHistoryButtons();
+}
+function undo(){
+ if(!undoStack.length)return;
+ redoStack.push(captureEditorState());
+ const previous=undoStack.pop();restoreEditorState(previous);
+ setStatus('Undo complete.');updateHistoryButtons();
+}
+function redo(){
+ if(!redoStack.length)return;
+ undoStack.push(captureEditorState());
+ const next=redoStack.pop();restoreEditorState(next);
+ setStatus('Redo complete.');updateHistoryButtons();
+}
+window.addEventListener('keydown',event=>{
+ const key=event.key.toLowerCase(),modifier=event.ctrlKey||event.metaKey;
+ if(!modifier)return;
+ const active=document.activeElement;
+ if(active&&(active.isContentEditable||['text','number','email','search','url','password'].includes(active.type)))return;
+ if(key==='z'){event.preventDefault();if(event.shiftKey)redo();else undo();}
+ else if(key==='y'){event.preventDefault();redo();}
+});
 function clearSelectionHelpers(){for(const h of selectionHelpers){scene.remove(h);h.geometry?.dispose();h.material?.dispose()}selectionHelpers=[]}
 function clearModel(){
  while(modelRoot.children.length){const o=modelRoot.children[0];modelRoot.remove(o);if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose()}}
@@ -376,6 +437,7 @@ function buildLayerList() {
             flex-shrink: 0;
         `;
 
+        colorPicker.addEventListener('change',()=>{delete colorPicker.dataset.historySaved;});
         colorPicker.addEventListener('click', event => {
             event.stopPropagation();
         });
@@ -707,9 +769,10 @@ $('svgFile').addEventListener('change',async e=>{
  }catch(err){console.error(err);setStatus('Could not read SVG file(s): '+(err?.message||err))}
  finally{input.value=''}
 });
-$('height').addEventListener('input',()=>{$('heightVal').textContent=Number($('height').value).toFixed(1)+' mm';if(baseShapes.length){baseShapes.forEach(s=>s.thickness=Number($('height').value));buildLayerList();rebuildModel()}});
-['quality','center'].forEach(id=>$(id).addEventListener('input',()=>{if(baseShapes.length)rebuildModel()}));
+$('height').addEventListener('pointerdown',saveHistory);$('height').addEventListener('input',()=>{$('heightVal').textContent=Number($('height').value).toFixed(1)+' mm';if(baseShapes.length){baseShapes.forEach(s=>s.thickness=Number($('height').value));buildLayerList();rebuildModel()}});
+['quality','center'].forEach(id=>{const el=$(id);el.addEventListener('pointerdown',saveHistory);el.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter')saveHistory()});el.addEventListener('change',()=>{if(baseShapes.length)rebuildModel()})});
 $('showEdges').addEventListener('change',()=>{wire=$('showEdges').checked;meshEntries.forEach(e=>e.mesh.material.wireframe=wire)});
+$('undoBtn').addEventListener('click',undo);$('redoBtn').addEventListener('click',redo);
 $('clearBuildplate').addEventListener('click',clearBuildplate);
 $('deleteSelected').addEventListener('click',deleteSelectedSvgs);
 $('resetView').addEventListener('click',resetCamera);
@@ -740,8 +803,8 @@ $('exportSelected').addEventListener('click',()=>exportSeparately([...selectedSv
 $('exportAllSeparate').addEventListener('click',()=>exportSeparately(parsedSvgFiles.map(f=>f.fileIndex)));
 $('exportObj').addEventListener('click',exportOBJMTL);
 $('allColors').addEventListener('click',()=>$('allColorPicker').click());
-$('allColorPicker').addEventListener('input',e=>{baseShapes.forEach(s=>s.color=e.target.value);buildLayerList();rebuildModel()});
-$('allThickness').addEventListener('click',()=>{const v=Number($('height').value);baseShapes.forEach(s=>s.thickness=v);buildLayerList();rebuildModel();setStatus(`All shapes set to ${v.toFixed(1)} mm thickness.`)});
+$('allColorPicker').addEventListener('input',e=>{if(!$('allColorPicker').dataset.historySaved){saveHistory();$('allColorPicker').dataset.historySaved='1'}baseShapes.forEach(s=>s.color=e.target.value);buildLayerList();rebuildModel()});
+$('allThickness').addEventListener('click',()=>{saveHistory();const v=Number($('height').value);baseShapes.forEach(s=>s.thickness=v);buildLayerList();rebuildModel();setStatus(`All shapes set to ${v.toFixed(1)} mm thickness.`)});
 </script>
 </body>
 </html>
