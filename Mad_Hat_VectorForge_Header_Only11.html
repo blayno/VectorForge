@@ -9,7 +9,14 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 header{padding:16px 22px;border-bottom:2px solid var(--accent);display:flex;align-items:center;justify-content:space-between;gap:16px;background:#0c1524;position:sticky;top:0;z-index:5;box-shadow:0 4px 18px #0005}
 h1{font-size:20px;margin:0;font-weight:850;letter-spacing:.2px}header p{margin:3px 0 0;color:var(--muted);font-size:12px}
-.brand{display:flex;gap:13px;align-items:center}.logo{width:48px;height:48px;border-radius:12px;background:var(--accent);display:grid;place-items:center;color:#151515;font-weight:900;font-size:20px;box-shadow:0 0 0 3px #f0a50020}.logo svg{width:36px;height:36px}.brand-kicker{font-size:10px;letter-spacing:2px;font-weight:900;color:var(--accent);margin-bottom:1px}.brand-workflow{border-left:1px solid #303949;padding-left:20px;margin-left:2px}.workflow-title{font-size:14px;color:#d2d9e4}.workflow-tagline{font-size:13px;font-style:italic;color:#aebbd0}
+.brand{display:flex;gap:14px;align-items:center;flex:0 0 auto}
+.brand .hat{font-size:40px;line-height:1;width:48px;display:grid;place-items:center;flex:0 0 48px}
+.brand-name{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1}
+.brand-title{font-size:23px;font-weight:900;letter-spacing:.4px;color:#f4f4f4;white-space:nowrap;margin:0}
+.brand-kicker{font-size:13px;letter-spacing:2px;font-weight:900;color:var(--accent);margin-top:6px;white-space:nowrap}
+.brand-workflow{border-left:1px solid #303949;padding-left:20px;margin-left:4px}
+.workflow-title{font-size:14px;color:#d2d9e4}
+.workflow-tagline{font-size:13px;font-style:italic;color:#aebbd0}
 main{display:grid;grid-template-columns:370px minmax(0,1fr);min-height:calc(100vh - 76px)}
 aside{padding:18px;border-right:1px solid var(--line);background:var(--panel);overflow:auto;max-height:calc(100vh - 76px)}
 section{margin-bottom:19px}.section-title{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-weight:800;margin-bottom:10px}
@@ -46,6 +53,74 @@ button.secondary{background:#1b2a40;color:var(--text);border:1px solid #344a68}b
 
 .viewer-hint{position:absolute;right:12px;top:12px;background:#101722cc;border:1px solid #35445a;border-radius:7px;padding:8px 10px;font-size:11px;color:var(--muted);pointer-events:none}
 
+
+/* Mad Hat spaced workshop layout */
+body{min-width:320px}
+header{min-height:76px;padding:12px 20px;gap:18px}
+main{
+  display:grid;
+  grid-template-columns:minmax(260px,300px) minmax(420px,1fr) minmax(260px,300px);
+  gap:10px;
+  padding:10px;
+  min-height:calc(100vh - 76px);
+  align-items:stretch;
+}
+main>aside{
+  min-width:0;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#151f2f;
+  overflow:auto;
+  max-height:calc(100vh - 96px);
+}
+main>aside:first-child{border-right:1px solid var(--line)}
+main>aside section{margin:0 0 12px;padding:12px;background:#111b2a;border:1px solid #2b3b52;border-radius:8px}
+main>aside section:last-child{margin-bottom:0}
+.section-title{margin-bottom:12px;font-size:11px;letter-spacing:1px}
+.workspace{
+  min-width:0;
+  min-height:calc(100vh - 96px);
+  border:1px solid var(--line);
+  border-radius:9px;
+  overflow:hidden;
+  background:#101a29;
+}
+.toolbar{padding:10px 12px;min-height:48px;gap:8px}
+#viewport{
+  min-height:420px;
+  height:calc(100vh - 190px);
+  background:radial-gradient(ellipse at center,#151515 0%,#080808 68%,#000000 100%);
+}
+.statusbar{min-height:38px;padding:9px 12px}
+.right-panel .section-title{color:#f2f5fa}
+.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.action-grid button{min-width:0;padding:9px 7px;font-size:11px}
+.action-grid.compact{grid-template-columns:1fr 1fr}
+.right-panel .section-title{display:flex;align-items:center;justify-content:space-between}
+.right-panel .panel-card>section{margin:0;padding:0;background:transparent;border:0}
+.right-panel .panel-card .full{margin-top:7px}
+.right-panel .notice{line-height:1.45}
+main>aside label{margin-top:9px}
+main>aside .filebox{padding:14px 10px}
+main>aside .note{line-height:1.5}
+.visualizer-tools{display:flex}
+.viewer-hint{right:12px;top:12px}
+@media(max-width:1120px){
+  main{grid-template-columns:minmax(230px,280px) minmax(360px,1fr)}
+  .right-panel{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:none}
+  .right-panel .panel-card:last-child{grid-column:1/-1}
+}
+@media(max-width:760px){
+  main{grid-template-columns:1fr;padding:8px}
+  main>aside{max-height:none}
+  .workspace{min-height:560px}
+  #viewport{height:480px;min-height:380px}
+  .right-panel{grid-column:auto;display:flex;flex-direction:column}
+  header{position:static;align-items:flex-start;flex-wrap:wrap}
+  .brand-workflow{display:none}
+}
+
 </style>
 <script>
 window.addEventListener('error',function(e){const s=document.getElementById('status');if(s&&e.message)s.textContent='Preview error: '+e.message+' — check internet access and reload.'});
@@ -56,9 +131,9 @@ window.addEventListener('unhandledrejection',function(){const s=document.getElem
 <header>
   <div class="brand">
     <div class="hat">🎩</div>
-    <div>
-      <div class="brand-kicker">MAD HAT 3D PRINTING</div>
-      <h1>SVG → 3D Extruder</h1>
+    <div class="brand-name">
+      <div class="brand-title">MAD HAT</div>
+      <div class="brand-kicker">VectorForge</div>
     </div>
     <div class="brand-workflow">
       <div class="workflow-title">Import · Extrude · Create</div>
@@ -94,7 +169,38 @@ window.addEventListener('unhandledrejection',function(){const s=document.getElem
     <input id="allColorPicker" type="color" value="#f0a500" style="display:none">
     <button class="secondary full" id="allThickness" disabled>Set all shapes to default thickness</button>
   </section>
-  <section>
+
+</aside>
+<div class="workspace">
+  <div class="toolbar">
+    <span>Click a model to select its SVG · Ctrl+click to multi-select</span><div class="spacer"></div><span id="shapeCount">No model loaded</span>
+  </div>
+  <div id="viewport">
+    <div class="visualizer-tools">
+      <button type="button" class="secondary" id="viewHome" title="Reset view" aria-label="Reset view">⌂</button>
+      <button type="button" class="secondary" id="viewTop" title="Top view" aria-label="Top view">T</button>
+      <button type="button" class="secondary" id="viewFront" title="Front view" aria-label="Front view">F</button>
+      <button type="button" class="secondary" id="toggleBuildplate" title="Toggle buildplate" aria-label="Toggle buildplate">▦</button>
+    </div>
+	<div class="viewer-hint">Left-drag: orbit · Right-drag: pan · Wheel: zoom</div>
+    <div class="empty" id="empty"><div class="empty-inner"><strong>Your 3D model will appear here</strong>Upload SVGs, then click a model to select its SVG by bounding box and export it separately.</div></div>
+  </div>
+  <div class="statusbar"><span id="status">Ready · Select SVG files to begin</span><span id="dimensions">—</span></div>
+</div>
+<aside class="right-panel">
+  <section class="panel-card">
+    <div class="section-title">MODEL ACTIONS</div>
+    <div class="action-grid">
+      <button class="secondary" id="undoBtn" disabled title="Undo (Ctrl+Z)">↶ Undo</button>
+      <button class="secondary" id="redoBtn" disabled title="Redo (Ctrl+Y)">↷ Redo</button>
+      <button class="secondary" id="resetView" disabled>Reset view</button>
+      <button class="secondary" id="deleteSelected" disabled>Delete selected</button>
+      <button class="secondary" id="clearBuildplate" disabled>Clear buildplate</button>
+      <button class="secondary" id="wireBtn" disabled>Wireframe</button>
+    </div>
+  </section>
+  <section class="panel-card">
+      <section>
     <div class="section-title">04 · EXPORT MODEL</div>
     <button id="exportSelected" class="full" disabled>Export selected SVGs separately (STL)</button>
     <button id="exportAllSeparate" class="blue full" disabled>Export ALL SVGs separately (STL)</button>
@@ -103,25 +209,8 @@ window.addEventListener('unhandledrejection',function(){const s=document.getElem
     <p class="note">Separate STL export creates one STL per imported SVG, preserving that SVG's shapes, holes and individual thicknesses. Multiple files download one after another; allow downloads if your browser asks.</p>
     <div class="notice">STL does not store colour. Use OBJ + MTL for compatible 3D tools. The separate STL exports retain each SVG's placement relative to the combined model; they are not automatically moved to the origin.</div>
   </section>
+  </section>
 </aside>
-<div class="workspace">
-  <div class="toolbar">
-    <button class="secondary" id="undoBtn" disabled title="Undo (Ctrl+Z)">↶ Undo</button><button class="secondary" id="redoBtn" disabled title="Redo (Ctrl+Y)">↷ Redo</button><button class="secondary" id="resetView" disabled>Reset view</button><button class="secondary" id="deleteSelected" disabled>Delete selected</button><button class="secondary" id="clearBuildplate" disabled>Clear buildplate</button>
-    <button class="secondary" id="wireBtn" disabled>Wireframe</button>
-    <span>Click a model to select its SVG · Ctrl+click to multi-select</span><div class="spacer"></div><span id="shapeCount">No model loaded</span>
-  </div>
-  <div id="viewport">
-    <div class="visualizer-tools">
-      <button type="button" id="viewHome" title="Reset view" aria-label="Reset view">⌂</button>
-      <button type="button" id="viewTop" title="Top view" aria-label="Top view">T</button>
-      <button type="button" id="viewFront" title="Front view" aria-label="Front view">F</button>
-      <button type="button" id="toggleBuildplate" title="Toggle buildplate" aria-label="Toggle buildplate">▦</button>
-    </div>
-	<div class="viewer-hint">Left-drag: orbit · Right-drag: pan · Wheel: zoom</div>
-    <div class="empty" id="empty"><div class="empty-inner"><strong>Your 3D model will appear here</strong>Upload SVGs, then click a model to select its SVG by bounding box and export it separately.</div></div>
-  </div>
-  <div class="statusbar"><span id="status">Ready · Select SVG files to begin</span><span id="dimensions">—</span></div>
-</div>
 </main>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
